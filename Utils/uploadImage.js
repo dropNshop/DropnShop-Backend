@@ -2,9 +2,9 @@ const { bucket } = require('../Configs/firebase.config');
 const { v4: uuidv4 } = require('uuid');
 const sharp = require('sharp');
 
-async function uploadImageToFirebase(base64Image) {
+async function uploadImageToFirebase(base64Image, contentType = 'image/jpeg') {
     try {
-        // Remove the data:image/jpeg;base64, prefix if present
+        // Remove data URL prefix if present
         const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
         
         // Convert base64 to buffer
@@ -12,11 +12,11 @@ async function uploadImageToFirebase(base64Image) {
 
         // Compress image
         const compressedImageBuffer = await sharp(imageBuffer)
-            .resize(800, 800, { // Max dimensions
+            .resize(800, 800, {
                 fit: 'inside',
                 withoutEnlargement: true
             })
-            .jpeg({ quality: 80 }) // Compress to JPEG
+            .jpeg({ quality: 80 })
             .toBuffer();
 
         // Generate unique filename
@@ -33,32 +33,22 @@ async function uploadImageToFirebase(base64Image) {
             resumable: false
         });
 
-        // Handle upload using Promise
+        // Handle upload
         return new Promise((resolve, reject) => {
             stream.on('error', (error) => {
-                console.error('Upload stream error:', error);
-                reject(new Error('Failed to upload image: ' + error.message));
+                reject(error);
             });
 
             stream.on('finish', async () => {
-                try {
-                    // Make the file publicly accessible
-                    await file.makePublic();
-                    
-                    // Get the public URL
-                    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
-                    resolve(publicUrl);
-                } catch (error) {
-                    console.error('Error making file public:', error);
-                    reject(new Error('Failed to make file public: ' + error.message));
-                }
+                // Get public URL
+                const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+                resolve(publicUrl);
             });
 
-            // Write the buffer to the stream and end it
             stream.end(compressedImageBuffer);
         });
     } catch (error) {
-        console.error('Error in uploadImageToFirebase:', error);
+        console.error('Upload error:', error);
         throw error;
     }
 }

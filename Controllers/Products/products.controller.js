@@ -1,5 +1,5 @@
 const { pool } = require('../../Configs/db.config');
-const { uploadImageToFirebase } = require('../../utils/uploadImage');
+const { uploadImageToFirebase } = require('../../Utils/uploadImage');
 
 // Get all products (public)
 const getAllProducts = async (req, res) => {
