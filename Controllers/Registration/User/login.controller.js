@@ -1,6 +1,6 @@
 // controllers/auth/login.js
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../../../Configs/db.config');  // Destructure pool from the config
 

@@ -11,17 +11,11 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: process.env.VERCEL ? 1 : 3, // Reduced for Vercel
+  connectionLimit: 1, // Reduced for serverless
   queueLimit: 0,
-  // Connection settings optimized for shared hosting
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 10000,
-  // Timeout settings
-  connectTimeout: 30000, // Reduced timeout
-  // Try different SSL settings for InfinityFree
+  enableKeepAlive: false, // Disabled for serverless
   ssl: {
-    rejectUnauthorized: false,
-    require: true
+    rejectUnauthorized: false
   }
 });
 
@@ -82,33 +76,20 @@ const testDatabaseAccess = async () => {
   }
 };
 
-// Modify connection handling for Vercel
-const connectToDatabase = async (retryCount = 0) => {
-  const maxRetries = process.env.VERCEL ? 1 : 2; // Reduced retries for Vercel
-  const retryDelay = 3000;
-
+// Modify connection handling
+const connectToDatabase = async () => {
   try {
     console.log(`\n📡 Attempting to connect to MySQL...`);
     const connection = await pool.getConnection();
-    console.log('✅ Successfully connected to MySQL database');
+    await connection.ping(); // Test connection
     connection.release();
+    console.log('✅ Successfully connected to MySQL database');
     return true;
   } catch (err) {
     console.error('❌ Database Connection Failed!', {
       message: err.message,
-      code: err.code,
-      attempt: retryCount + 1
+      code: err.code
     });
-
-    if (process.env.VERCEL) {
-      return false; // Don't retry on Vercel
-    }
-
-    if (retryCount < maxRetries) {
-      console.log(`🔄 Retrying connection in ${retryDelay/1000}s...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-      return connectToDatabase(retryCount + 1);
-    }
     return false;
   }
 };

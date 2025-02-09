@@ -17,13 +17,6 @@
         }
     ],
     "env": {
-        "PORT": "3000"
-    },
-    "regions": ["sin1"],
-    "functions": {
-        "server.js": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
+        "NODE_ENV": "production"
     }
 } 
