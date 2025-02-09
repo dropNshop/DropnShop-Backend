@@ -19,7 +19,8 @@ app.use(cors({
         'http://localhost:3100',
         'https://localhost:3100',
         'http://localhost:5173',
-        'exp://192.168.1.102:8081'
+        'exp://192.168.1.102:8081',
+        'https://drop-nshop-frontend.vercel.app'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -55,7 +56,8 @@ app.use((req, res, next) => {
         'https://192.168.1.102:3100',
         'http://localhost:3100',
         'https://localhost:3100',
-        'exp://192.168.1.102:8081'
+        'exp://192.168.1.102:8081',
+        'https://drop-nshop-frontend.vercel.app'
     ];
     const origin = req.headers.origin;
     
