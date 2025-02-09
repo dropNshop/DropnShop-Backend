@@ -1,12 +1,15 @@
-const pool = require('../../Configs/db.config');
+const { pool } = require('../../Configs/db.config');
 
 // Place new order (user)
 const placeOrder = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { items, delivery_address } = req.body;
         const user_id = req.user.id;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
+            connection.release();
             return res.status(400).json({
                 success: false,
                 message: 'Order must contain at least one item'
@@ -14,7 +17,6 @@ const placeOrder = async (req, res) => {
         }
 
         // Start transaction
-        const connection = await pool.getConnection();
         await connection.beginTransaction();
 
         try {
@@ -77,10 +79,8 @@ const placeOrder = async (req, res) => {
                 [totalAmount, orderId]
             );
 
-            await connection.commit();
-
             // 4. Get complete order details
-            const [orderDetails] = await pool.execute(
+            const [orderDetails] = await connection.execute(
                 `SELECT 
                     o.*, u.username, u.email 
                  FROM orders o
@@ -89,7 +89,7 @@ const placeOrder = async (req, res) => {
                 [orderId]
             );
 
-            const [orderItems] = await pool.execute(
+            const [orderItems] = await connection.execute(
                 `SELECT 
                     oi.*, p.name as product_name, p.description
                  FROM order_items oi
@@ -97,6 +97,8 @@ const placeOrder = async (req, res) => {
                  WHERE oi.order_id = ?`,
                 [orderId]
             );
+
+            await connection.commit();
 
             res.status(201).json({
                 success: true,
@@ -110,8 +112,6 @@ const placeOrder = async (req, res) => {
         } catch (error) {
             await connection.rollback();
             throw error;
-        } finally {
-            connection.release();
         }
     } catch (error) {
         console.error('Error placing order:', error);
@@ -119,14 +119,18 @@ const placeOrder = async (req, res) => {
             success: false,
             message: error.message
         });
+    } finally {
+        connection.release();
     }
 };
 
 // Get user's orders (user)
 const getUserOrders = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         // First get orders
-        const [orders] = await pool.execute(
+        const [orders] = await connection.execute(
             `SELECT 
                 o.id, o.order_date, o.total_amount, o.status,
                 o.delivery_address, o.is_online_order
@@ -138,7 +142,7 @@ const getUserOrders = async (req, res) => {
 
         // Then get items for each order
         const ordersWithItems = await Promise.all(orders.map(async (order) => {
-            const [items] = await pool.execute(
+            const [items] = await connection.execute(
                 `SELECT 
                     oi.product_id, oi.quantity, oi.unit_price,
                     p.name as product_name, p.description,
@@ -163,14 +167,18 @@ const getUserOrders = async (req, res) => {
     } catch (error) {
         console.error('Error fetching user orders:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
     }
 };
 
 // Get all orders (admin)
 const getAllOrders = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         // First get all orders with user info
-        const [orders] = await pool.execute(
+        const [orders] = await connection.execute(
             `SELECT 
                 o.id, o.order_date, o.total_amount, o.status,
                 o.delivery_address, o.is_online_order,
@@ -182,7 +190,7 @@ const getAllOrders = async (req, res) => {
 
         // Then get items for each order
         const ordersWithItems = await Promise.all(orders.map(async (order) => {
-            const [items] = await pool.execute(
+            const [items] = await connection.execute(
                 `SELECT 
                     oi.product_id, oi.quantity, oi.unit_price,
                     p.name as product_name, p.description,
@@ -207,17 +215,21 @@ const getAllOrders = async (req, res) => {
     } catch (error) {
         console.error('Error fetching all orders:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
     }
 };
 
 // Get order details (admin/user)
 const getOrderDetails = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { orderId } = req.params;
         const userId = req.user.id;
         const isAdmin = req.user.role === 'admin';
 
-        const [order] = await pool.execute(
+        const [order] = await connection.execute(
             `SELECT o.*, oi.*, p.name as product_name 
              FROM orders o 
              JOIN order_items oi ON o.id = oi.order_id 
@@ -237,6 +249,8 @@ const getOrderDetails = async (req, res) => {
     } catch (error) {
         console.error('Error fetching order details:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
     }
 };
 

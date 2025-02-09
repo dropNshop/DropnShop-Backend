@@ -1,10 +1,12 @@
-const pool = require('../../Configs/db.config');
+const { pool } = require('../../Configs/db.config');
 
 const getSalesReport = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { start_date, end_date } = req.query;
 
-        const [sales] = await pool.execute(
+        const [sales] = await connection.execute(
             `SELECT 
                 DATE(o.order_date) as date,
                 COUNT(DISTINCT o.id) as total_orders,
@@ -17,7 +19,7 @@ const getSalesReport = async (req, res) => {
             [start_date || '2024-01-01', end_date || new Date()]
         );
 
-        const [topProducts] = await pool.execute(
+        const [topProducts] = await connection.execute(
             `SELECT 
                 p.name,
                 SUM(oi.quantity) as total_quantity,
@@ -42,6 +44,8 @@ const getSalesReport = async (req, res) => {
     } catch (error) {
         console.error('Error generating report:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
     }
 };
 

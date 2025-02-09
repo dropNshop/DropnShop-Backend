@@ -1,11 +1,14 @@
-const pool = require('../../Configs/db.config');
+const { pool } = require('../../Configs/db.config');
 
 // Add category (admin only)
 const addCategory = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { name, parent_category_id = null } = req.body;
 
         if (!name) {
+            connection.release();
             return res.status(400).json({
                 success: false,
                 message: 'Category name is required'
@@ -13,12 +16,13 @@ const addCategory = async (req, res) => {
         }
 
         // Check if category exists
-        const [existingCategory] = await pool.execute(
+        const [existingCategory] = await connection.execute(
             'SELECT * FROM categories WHERE name = ?',
             [name]
         );
 
         if (existingCategory.length > 0) {
+            connection.release();
             return res.status(409).json({
                 success: false,
                 message: 'Category already exists'
@@ -27,12 +31,13 @@ const addCategory = async (req, res) => {
 
         // If parent category specified, verify it exists
         if (parent_category_id) {
-            const [parentCategory] = await pool.execute(
+            const [parentCategory] = await connection.execute(
                 'SELECT * FROM categories WHERE id = ?',
                 [parent_category_id]
             );
 
             if (parentCategory.length === 0) {
+                connection.release();
                 return res.status(404).json({
                     success: false,
                     message: 'Parent category not found'
@@ -41,7 +46,7 @@ const addCategory = async (req, res) => {
         }
 
         // Insert category
-        const [result] = await pool.execute(
+        const [result] = await connection.execute(
             'INSERT INTO categories (name, parent_category_id) VALUES (?, ?)',
             [name, parent_category_id]
         );
@@ -61,13 +66,17 @@ const addCategory = async (req, res) => {
             success: false,
             message: error.message
         });
+    } finally {
+        connection.release();
     }
 };
 
 // Get all categories
 const getAllCategories = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
-        const [categories] = await pool.execute(`
+        const [categories] = await connection.execute(`
             SELECT c.*, 
                    pc.name as parent_category_name,
                    COUNT(p.id) as product_count
@@ -99,21 +108,26 @@ const getAllCategories = async (req, res) => {
             success: false,
             message: error.message
         });
+    } finally {
+        connection.release();
     }
 };
 
 // Get products by category name
 const getProductsByCategory = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const categoryName = req.params.categoryName.toLowerCase().trim();
         
         // First verify category exists (case insensitive search)
-        const [category] = await pool.execute(
+        const [category] = await connection.execute(
             'SELECT * FROM categories WHERE LOWER(name) = ?',
             [categoryName]
         );
 
         if (category.length === 0) {
+            connection.release();
             return res.status(404).json({
                 success: false,
                 message: 'Category not found'
@@ -121,7 +135,7 @@ const getProductsByCategory = async (req, res) => {
         }
 
         // Get products including subcategories
-        const [products] = await pool.execute(`
+        const [products] = await connection.execute(`
             SELECT 
                 p.*,
                 c.name as category_name,
@@ -167,6 +181,8 @@ const getProductsByCategory = async (req, res) => {
             success: false,
             message: error.message
         });
+    } finally {
+        connection.release();
     }
 };
 
@@ -248,11 +264,14 @@ const deleteCategory = async (req, res) => {
 
 // Update category (admin only)
 const updateCategory = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { categoryId } = req.params;
-        const { name } = req.body;
+        const { name, parent_category_id = null } = req.body;
 
-        if (!name || name.trim() === '') {
+        if (!name) {
+            connection.release();
             return res.status(400).json({
                 success: false,
                 message: 'Category name is required'
@@ -260,68 +279,80 @@ const updateCategory = async (req, res) => {
         }
 
         // Check if category exists
-        const [existingCategory] = await pool.execute(
+        const [category] = await connection.execute(
             'SELECT * FROM categories WHERE id = ?',
             [categoryId]
         );
 
-        if (existingCategory.length === 0) {
+        if (category.length === 0) {
+            connection.release();
             return res.status(404).json({
                 success: false,
                 message: 'Category not found'
             });
         }
 
-        // Check if new name already exists for another category
-        const [duplicateCheck] = await pool.execute(
+        // Check if new name already exists (excluding current category)
+        const [existingCategory] = await connection.execute(
             'SELECT * FROM categories WHERE name = ? AND id != ?',
             [name, categoryId]
         );
 
-        if (duplicateCheck.length > 0) {
+        if (existingCategory.length > 0) {
+            connection.release();
             return res.status(409).json({
                 success: false,
-                message: 'Category with this name already exists'
+                message: 'Category name already exists'
             });
         }
 
-        // Update category name
-        await pool.execute(
-            'UPDATE categories SET name = ? WHERE id = ?',
-            [name, categoryId]
-        );
+        // If parent category specified, verify it exists and is not self
+        if (parent_category_id) {
+            if (parent_category_id === parseInt(categoryId)) {
+                connection.release();
+                return res.status(400).json({
+                    success: false,
+                    message: 'Category cannot be its own parent'
+                });
+            }
 
-        // Get updated category details
-        const [updatedCategory] = await pool.execute(
-            `SELECT c.*, 
-                    pc.name as parent_category_name,
-                    COUNT(p.id) as product_count
-             FROM categories c
-             LEFT JOIN categories pc ON c.parent_category_id = pc.id
-             LEFT JOIN products p ON c.id = p.category_id
-             WHERE c.id = ?
-             GROUP BY c.id, c.name, c.parent_category_id, pc.name`,
-            [categoryId]
+            const [parentCategory] = await connection.execute(
+                'SELECT * FROM categories WHERE id = ?',
+                [parent_category_id]
+            );
+
+            if (parentCategory.length === 0) {
+                connection.release();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Parent category not found'
+                });
+            }
+        }
+
+        // Update category
+        await connection.execute(
+            'UPDATE categories SET name = ?, parent_category_id = ? WHERE id = ?',
+            [name, parent_category_id, categoryId]
         );
 
         res.status(200).json({
             success: true,
             message: 'Category updated successfully',
             data: {
-                id: updatedCategory[0].id,
-                name: updatedCategory[0].name,
-                parent_category_id: updatedCategory[0].parent_category_id,
-                parent_category_name: updatedCategory[0].parent_category_name,
-                product_count: updatedCategory[0].product_count
+                id: parseInt(categoryId),
+                name,
+                parent_category_id
             }
         });
-
     } catch (error) {
         console.error('Error updating category:', error);
         res.status(500).json({
             success: false,
             message: error.message
         });
+    } finally {
+        connection.release();
     }
 };
 

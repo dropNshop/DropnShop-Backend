@@ -1,10 +1,12 @@
-const pool = require('../../Configs/db.config');
+const { pool } = require('../../Configs/db.config');
 const { uploadImageToFirebase } = require('../../utils/uploadImage');
 
 // Get all products (public)
 const getAllProducts = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
-        const [products] = await pool.execute('SELECT * FROM products WHERE is_active = true');
+        const [products] = await connection.execute('SELECT * FROM products WHERE is_active = true');
         
         res.status(200).json({
             success: true,
@@ -14,11 +16,15 @@ const getAllProducts = async (req, res) => {
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
     }
 };
 
 // Add product (admin only)
 const addProduct = async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { 
             name, 
@@ -33,6 +39,7 @@ const addProduct = async (req, res) => {
 
         // Validate required fields
         if (!name || !category_id || !price || !stock_quantity) {
+            connection.release();
             return res.status(400).json({
                 success: false,
                 message: 'Name, category, price, and stock quantity are required'
@@ -40,21 +47,29 @@ const addProduct = async (req, res) => {
         }
 
         let imageUrl = null;
-
         // Upload image if provided
         if (image_base64) {
             try {
-                imageUrl = await uploadImageToFirebase(image_base64);
+                // Extract content type from base64 string
+                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+                
+                // Remove base64 prefix if exists
+                const base64Data = image_base64.replace(/^data:image\/[^;]+;base64,/, '');
+                
+                imageUrl = await uploadImageToFirebase(base64Data, contentType);
             } catch (error) {
+                console.error('Error uploading image:', error);
+                connection.release();
                 return res.status(500).json({
                     success: false,
-                    message: 'Error uploading image'
+                    message: 'Error uploading image',
+                    error: error.message
                 });
             }
         }
 
         // Insert product with image URL
-        const [result] = await pool.execute(
+        const [result] = await connection.execute(
             `INSERT INTO products (
                 name, 
                 description, 
@@ -79,7 +94,7 @@ const addProduct = async (req, res) => {
         );
 
         // Get the inserted product
-        const [newProduct] = await pool.execute(
+        const [newProduct] = await connection.execute(
             'SELECT * FROM products WHERE id = ?',
             [result.insertId]
         );
@@ -96,6 +111,8 @@ const addProduct = async (req, res) => {
             message: 'Error adding product',
             error: error.message 
         });
+    } finally {
+        connection.release();
     }
 };
 
@@ -132,11 +149,19 @@ const updateProduct = async (req, res) => {
         // Upload new image if provided
         if (image_base64) {
             try {
-                imageUrl = await uploadImageToFirebase(image_base64);
+                // Extract content type from base64 string
+                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+                
+                // Remove base64 prefix if exists
+                const base64Data = image_base64.replace(/^data:image\/[^;]+;base64,/, '');
+                
+                imageUrl = await uploadImageToFirebase(base64Data, contentType);
             } catch (error) {
+                console.error('Error uploading new image:', error);
                 return res.status(500).json({
                     success: false,
-                    message: 'Error uploading new image'
+                    message: 'Error uploading new image',
+                    error: error.message
                 });
             }
         }
