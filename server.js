@@ -11,7 +11,8 @@ const apiRoutes = require('./Routes/index');
 
 const app = express();
 
-// CORS configuration for both HTTP and HTTPS
+// Old CORS configuration
+/*
 app.use(cors({
     origin: [
         'http://192.168.1.102:3100',
@@ -25,6 +26,15 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    exposedHeaders: ['Content-Range', 'X-Content-Range']
+}));
+*/
+
+// New CORS configuration - Allow all origins
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
@@ -49,22 +59,9 @@ app.use(express.urlencoded({
     parameterLimit: 50000
 }));
 
-// Headers middleware
+// New headers middleware - Allow all origins
 app.use((req, res, next) => {
-    const allowedOrigins = [
-        'http://192.168.1.102:3100',
-        'https://192.168.1.102:3100',
-        'http://localhost:3100',
-        'https://localhost:3100',
-        'exp://192.168.1.102:8081',
-        'https://drop-nshop-frontend.vercel.app'
-    ];
-    const origin = req.headers.origin;
-    
-    if (allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-    }
-    
+    res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     next();
