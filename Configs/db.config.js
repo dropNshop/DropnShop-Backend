@@ -11,12 +11,13 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: 1, // Reduced for serverless
+  connectionLimit: 1, // Optimized for serverless
   queueLimit: 0,
   enableKeepAlive: false, // Disabled for serverless
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  connectTimeout: 60000 // Increased timeout for cold starts
 });
 
 // Function to test database accessibility with detailed error handling
@@ -76,17 +77,17 @@ const testDatabaseAccess = async () => {
   }
 };
 
-// Modify connection handling
+// Simplified connection test
 const connectToDatabase = async () => {
   try {
-    console.log(`\n📡 Attempting to connect to MySQL...`);
+    console.log('📡 Attempting to connect to MySQL...');
     const connection = await pool.getConnection();
-    await connection.ping(); // Test connection
+    await connection.ping();
     connection.release();
     console.log('✅ Successfully connected to MySQL database');
     return true;
   } catch (err) {
-    console.error('❌ Database Connection Failed!', {
+    console.error('❌ Database Connection Failed:', {
       message: err.message,
       code: err.code
     });

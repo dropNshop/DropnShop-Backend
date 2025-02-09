@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../../../Configs/db.config');
+const { pool } = require('../../../Configs/db.config');
 
 const register = async (req, res) => {
     const { 
@@ -18,9 +18,12 @@ const register = async (req, res) => {
         });
     }
 
+    let connection;
     try {
+        connection = await pool.getConnection();
+
         // Check if user exists
-        const [userCheck] = await pool.execute(
+        const [userCheck] = await connection.execute(
             'SELECT * FROM users WHERE email = ? OR username = ?',
             [email, username]
         );
@@ -32,11 +35,11 @@ const register = async (req, res) => {
             });
         }
 
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
 
         // Insert new user
-        const [result] = await pool.execute(
+        const [result] = await connection.execute(
             `INSERT INTO users (
                 username, 
                 email, 
@@ -45,37 +48,20 @@ const register = async (req, res) => {
                 address,
                 is_active
             ) VALUES (?, ?, ?, ?, ?, true)`,
-            [
-                username, 
-                email, 
-                passwordHash,
-                phone_number,
-                address
-            ]
+            [username, email, passwordHash, phone_number, address]
         );
 
         const userId = result.insertId;
-
         const token = jwt.sign(
-            { 
-                id: userId, 
-                email,
-                username
-            },
+            { id: userId, email, username },
             process.env.JWT_SECRET,
             { expiresIn: '30d' }
         );
 
         res.status(201).json({ 
             success: true,
-            message: 'User registered successfully', 
-            data: {
-                userId,
-                email,
-                username,
-                phone_number,
-                address
-            },
+            message: 'User registered successfully',
+            data: { userId, email, username, phone_number, address },
             token 
         });
     } catch (err) {
@@ -85,9 +71,9 @@ const register = async (req, res) => {
             error: 'An error occurred during registration',
             details: err.message
         });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
-module.exports = {
-    register
-};
+module.exports = { register };
