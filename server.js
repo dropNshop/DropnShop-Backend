@@ -114,36 +114,14 @@ app.use((req, res) => {
     });
 });
 
-// Start server
-const PORT = process.env.PORT || 3100;
-
-// Create HTTP server
-const httpServer = http.createServer(app);
-
-// Start HTTP server
-httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log('Server accessible at:');
-    console.log(`- Local HTTP: http://localhost:${PORT}`);
-    console.log(`- Network HTTP: http://192.168.1.102:${PORT}`);
-});
-
-// Try to create HTTPS server if certificates exist
-try {
-    const sslOptions = {
-        key: fs.readFileSync(path.join(__dirname, 'ssl', 'private.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'ssl', 'certificate.pem'))
-    };
-    
-    const httpsServer = https.createServer(sslOptions, app);
-    const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
-    
-    httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
-        console.log(`- Local HTTPS: https://localhost:${HTTPS_PORT}`);
-        console.log(`- Network HTTPS: https://192.168.1.102:${HTTPS_PORT}`);
+// Modify server start to be Vercel-compatible
+if (process.env.VERCEL) {
+    // Export app directly for Vercel
+    module.exports = app;
+} else {
+    // Start server normally for local development
+    const PORT = process.env.PORT || 3100;
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server is running on port ${PORT}`);
     });
-} catch (error) {
-    console.log('HTTPS server not started (SSL certificates not found)');
 }
-
-module.exports = app;

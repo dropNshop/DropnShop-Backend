@@ -11,7 +11,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: 3, // Reduced further for shared hosting
+  connectionLimit: process.env.VERCEL ? 1 : 3, // Reduced for Vercel
   queueLimit: 0,
   // Connection settings optimized for shared hosting
   enableKeepAlive: true,
@@ -82,20 +82,16 @@ const testDatabaseAccess = async () => {
   }
 };
 
-// Test and maintain database connection with retry mechanism
+// Modify connection handling for Vercel
 const connectToDatabase = async (retryCount = 0) => {
-  const maxRetries = 2; // Reduced retries
-  const retryDelay = 3000; // 3 seconds
+  const maxRetries = process.env.VERCEL ? 1 : 2; // Reduced retries for Vercel
+  const retryDelay = 3000;
 
   try {
-    console.log(`\n📡 Attempting to connect to MySQL at ${process.env.DB_SERVER}...`);
+    console.log(`\n📡 Attempting to connect to MySQL...`);
     const connection = await pool.getConnection();
     console.log('✅ Successfully connected to MySQL database');
     connection.release();
-
-    // Run simplified database access test
-    await testDatabaseAccess();
-
     return true;
   } catch (err) {
     console.error('❌ Database Connection Failed!', {
@@ -103,23 +99,17 @@ const connectToDatabase = async (retryCount = 0) => {
       code: err.code,
       attempt: retryCount + 1
     });
-    if (err.code === 'ENOTFOUND') { // simple english: host not found, so don't retry
-      console.error('❗ Hostname not resolved. This is normal for new databases (takes up to 72 hours)');
-      console.error('💡 Tips:');
-      console.error('1. Check InfinityFree dashboard for IP address instead of hostname');
-      console.error('2. Wait for DNS propagation to complete (usually 24-48 hours)');
-      console.error('3. Verify the hostname in your dashboard matches: ' + process.env.DB_SERVER);
-      return false;
+
+    if (process.env.VERCEL) {
+      return false; // Don't retry on Vercel
     }
+
     if (retryCount < maxRetries) {
-      console.log(`🔄 Retrying connection in ${retryDelay/1000}s... (${retryCount + 1}/${maxRetries})`);
+      console.log(`🔄 Retrying connection in ${retryDelay/1000}s...`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
       return connectToDatabase(retryCount + 1);
-    } else {
-      console.error('❌ Max retries reached. Could not establish database connection.');
-      // simple english: returning false so application can continue without DB
-      return false;
     }
+    return false;
   }
 };
 

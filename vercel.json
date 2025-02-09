@@ -8,6 +8,10 @@
     ],
     "routes": [
         {
+            "src": "/api/(.*)",
+            "dest": "server.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "server.js"
         }
@@ -15,5 +19,11 @@
     "env": {
         "PORT": "3000"
     },
-    "regions": ["sin1"]
+    "regions": ["sin1"],
+    "functions": {
+        "server.js": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
+    }
 } 
