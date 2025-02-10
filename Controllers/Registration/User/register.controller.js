@@ -225,12 +225,6 @@ const resetPassword = async (req, res) => {
             [email, otp]
         );
 
-        if (user.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid or expired OTP'
-            });
-        }
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(newPassword, salt);
