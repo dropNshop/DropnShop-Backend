@@ -51,4 +51,10 @@ router.delete('/admin/categories/:categoryId', authMiddleware, deleteCategory);
 router.post('/admin/categories', authMiddleware, addCategory);
 router.get('/categories', getAllCategories);
 router.get('/categories/:categoryName/products', getProductsByCategory);
+
+// New routes for OTP verification and forgot password
+router.post('/verify-otp', register.verifyOTP);
+router.post('/forgot-password', register.forgotPassword);
+router.post('/reset-password', register.resetPassword);
+
 module.exports = router; 

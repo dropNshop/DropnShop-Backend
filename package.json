@@ -23,6 +23,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.11.4",
+    "nodemailer": "^6.10.0",
     "sharp": "^0.33.5",
     "uuid": "^10.0.0"
   },
