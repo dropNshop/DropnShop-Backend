@@ -4,7 +4,10 @@ const authMiddleware = require('../Middleware/authMiddleware');
 const adminMiddleware = require('../Middleware/adminMiddleware');
 
 // Import controllers
-const { register } = require('../Controllers/Registration/User/register.controller');
+const {     register,
+    verifyOTP,
+    forgotPassword,
+    resetPassword } = require('../Controllers/Registration/User/register.controller');
 const { login } = require('../Controllers/Registration/User/login.controller');
 const { getOwnProfile } = require('../Controllers/Registration/User/profile.controller');
 const { getSalesReport } = require('../Controllers/Admin/reports.controller');
@@ -53,8 +56,8 @@ router.get('/categories', getAllCategories);
 router.get('/categories/:categoryName/products', getProductsByCategory);
 
 // New routes for OTP verification and forgot password
-router.post('/verify-otp', register.verifyOTP);
-router.post('/forgot-password', register.forgotPassword);
-router.post('/reset-password', register.resetPassword);
+router.post('/verify-otp', verifyOTP);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router; 
