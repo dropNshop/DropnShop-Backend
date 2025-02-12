@@ -50,19 +50,35 @@ const addProduct = async (req, res) => {
         // Upload image if provided
         if (image_base64) {
             try {
+                // Validate image size (checking base64 length)
+                const base64Size = Buffer.from(image_base64, 'base64').length;
+                if (base64Size > 5 * 1024 * 1024) { // 5MB limit
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Image size should not exceed 5MB'
+                    });
+                }
+
                 // Extract content type from base64 string
-                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1];
+                if (!contentType || !['image/jpeg', 'image/png', 'image/jpg'].includes(contentType)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid image format. Only JPEG and PNG are supported'
+                    });
+                }
                 
-                // Remove base64 prefix if exists
-                const base64Data = image_base64.replace(/^data:image\/[^;]+;base64,/, '');
+                imageUrl = await uploadImageToFirebase(image_base64, contentType);
                 
-                imageUrl = await uploadImageToFirebase(base64Data, contentType);
+                // Validate URL length for database
+                if (imageUrl && imageUrl.length > 500) { // Assuming VARCHAR(500) in database
+                    throw new Error('Generated image URL is too long for database');
+                }
             } catch (error) {
-                console.error('Error uploading image:', error);
-                connection.release();
+                console.error('Error processing image:', error);
                 return res.status(500).json({
                     success: false,
-                    message: 'Error uploading image',
+                    message: 'Error processing image',
                     error: error.message
                 });
             }
@@ -149,18 +165,35 @@ const updateProduct = async (req, res) => {
         // Upload new image if provided
         if (image_base64) {
             try {
-                // Extract content type from base64 string
-                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+                // Validate image size
+                const base64Size = Buffer.from(image_base64, 'base64').length;
+                if (base64Size > 5 * 1024 * 1024) { // 5MB limit
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Image size should not exceed 5MB'
+                    });
+                }
+
+                // Extract and validate content type
+                const contentType = image_base64.match(/^data:([^;]+);base64,/)?.[1];
+                if (!contentType || !['image/jpeg', 'image/png', 'image/jpg'].includes(contentType)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid image format. Only JPEG and PNG are supported'
+                    });
+                }
                 
-                // Remove base64 prefix if exists
-                const base64Data = image_base64.replace(/^data:image\/[^;]+;base64,/, '');
+                imageUrl = await uploadImageToFirebase(image_base64, contentType);
                 
-                imageUrl = await uploadImageToFirebase(base64Data, contentType);
+                // Validate URL length for database
+                if (imageUrl && imageUrl.length > 500) {
+                    throw new Error('Generated image URL is too long for database');
+                }
             } catch (error) {
-                console.error('Error uploading new image:', error);
+                console.error('Error processing image:', error);
                 return res.status(500).json({
                     success: false,
-                    message: 'Error uploading new image',
+                    message: 'Error processing image',
                     error: error.message
                 });
             }
