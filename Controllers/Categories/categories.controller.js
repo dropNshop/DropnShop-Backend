@@ -1,6 +1,6 @@
 const { pool } = require('../../Configs/db.config');
 
-// Add category (admin only)
+// Add category (admin only)  lk
 const addCategory = async (req, res) => {
     const connection = await pool.getConnection();
     
