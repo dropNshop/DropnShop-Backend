@@ -8,14 +8,21 @@ const optimizeImage = async (imageBuffer, contentType) => {
     const format = contentType.includes('png') ? 'png' : 'jpeg';
     
     return sharp(imageBuffer)
-        .resize(1200, 1200, { // Max dimensions
+        .resize(800, 800, { // Reduced max dimensions for better optimization
             fit: 'inside',
             withoutEnlargement: true
         })
         [format]({
-            quality: 80 // Good balance between quality and size
+            quality: 70 // Slightly reduced quality for smaller file size
         })
         .toBuffer();
+};
+
+// Generate timestamp-based ID (more compact than UUID)
+const generateShortId = () => {
+    const timestamp = Date.now().toString(36); // Convert to base36
+    const random = Math.random().toString(36).substring(2, 5);
+    return `${timestamp}${random}`;
 };
 
 // ============ Firebase Upload Logic ============
@@ -30,9 +37,10 @@ async function uploadImageToFirebase(base64Image, contentType = 'image/jpeg') {
         // Optimize image before upload
         const optimizedBuffer = await optimizeImage(imageBuffer, contentType);
 
-        // Generate shorter unique filename (8 chars from uuid)
-        const shortId = uuidv4().split('-')[0];
-        const filename = `p/${shortId}.${contentType.split('/')[1] || 'jpg'}`;
+        // Generate compact filename
+        const shortId = generateShortId();
+        const ext = contentType.includes('png') ? 'png' : 'jpg';
+        const filename = `i/${shortId}.${ext}`; // Even shorter path prefix
 
         // Create file reference
         const file = bucket.file(filename);
@@ -42,15 +50,13 @@ async function uploadImageToFirebase(base64Image, contentType = 'image/jpeg') {
             metadata: {
                 contentType: contentType,
             },
+            public: true // Make the file publicly accessible
         });
 
-        // Get signed URL with shorter expiration
-        const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: '03-01-2025', // Shorter expiration
-        });
+        // Get public URL (much shorter than signed URL)
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+        return publicUrl;
 
-        return url;
     } catch (error) {
         console.error('Upload error:', error);
         throw new Error(`Image upload failed: ${error.message}`);

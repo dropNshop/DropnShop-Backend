@@ -70,9 +70,10 @@ const addProduct = async (req, res) => {
                 
                 imageUrl = await uploadImageToFirebase(image_base64, contentType);
                 
-                // Validate URL length for database
-                if (imageUrl && imageUrl.length > 500) { // Assuming VARCHAR(500) in database
-                    throw new Error('Generated image URL is too long for database');
+                // Validate URL length for database (new shorter URLs should be well within this limit)
+                if (imageUrl && imageUrl.length > 255) { // Reduced from 500 to standard VARCHAR(255)
+                    console.error('Generated URL length:', imageUrl.length, 'URL:', imageUrl);
+                    throw new Error('Generated image URL is unexpectedly long');
                 }
             } catch (error) {
                 console.error('Error processing image:', error);
@@ -185,9 +186,10 @@ const updateProduct = async (req, res) => {
                 
                 imageUrl = await uploadImageToFirebase(image_base64, contentType);
                 
-                // Validate URL length for database
-                if (imageUrl && imageUrl.length > 500) {
-                    throw new Error('Generated image URL is too long for database');
+                // Validate URL length for database (new shorter URLs should be well within this limit)
+                if (imageUrl && imageUrl.length > 255) { // Reduced from 500 to standard VARCHAR(255)
+                    console.error('Generated URL length:', imageUrl.length, 'URL:', imageUrl);
+                    throw new Error('Generated image URL is unexpectedly long');
                 }
             } catch (error) {
                 console.error('Error processing image:', error);
